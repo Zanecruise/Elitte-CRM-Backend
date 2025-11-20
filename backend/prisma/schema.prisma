@@ -1,0 +1,119 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Partner {
+  id                    String   @id @default(cuid())
+  name                  String
+  phone                 String?
+  address               Json?
+  responsiblePersons    Json?
+  contract              Json?
+  indicatedClientsCount Int      @default(0)
+  totalVolume           Decimal? @db.Decimal(18, 2)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  clients               Client[]
+}
+
+model Client {
+  id                 String   @id @default(cuid())
+  type               String
+  name               String
+  email              String   @unique
+  phone              String?
+  cpf                String?
+  cnpj               String?
+  sector             String?
+  servicePreferences String[] @default([])
+  advisors           String[] @default([])
+  complianceStatus   String   @default("Pendente")
+  walletValue        Decimal? @db.Decimal(18, 2)
+  financialProfile   Json?
+  address            Json?
+  contactPersons     Json?
+  partnerData        Json?
+  citizenship        String?
+  interactionHistory Json?
+  reminders          Json?
+  partnerId          String?
+  lastActivity       DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  partner            Partner? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  opportunities      Opportunity[]
+  transactions       Transaction[]
+  activities         Activity[]
+}
+
+model Opportunity {
+  id                String   @id @default(cuid())
+  title             String
+  source            String?
+  estimatedValue    Decimal? @db.Decimal(18, 2)
+  stage             String
+  probability       Int?
+  expectedCloseDate DateTime?
+  responsible       String?
+  nextAction        String?
+  clientId          String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  activities        Activity[]
+}
+
+model Transaction {
+  id              String   @id @default(cuid())
+  clientId        String
+  type            String
+  product         Json?
+  value           Decimal? @db.Decimal(18, 2)
+  unitValue       Decimal? @db.Decimal(18, 2)
+  quantity        Int?
+  reservationDate DateTime?
+  liquidationDate DateTime?
+  timestamp       DateTime @default(now())
+  status          String
+  institution     String?
+  docRef          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model Activity {
+  id            String   @id @default(cuid())
+  title         String
+  type          String
+  clientId      String?
+  opportunityId String?
+  assessor      String?
+  guests        String[] @default([])
+  location      String?
+  dueDate       DateTime
+  priority      String
+  status        String
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  client        Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+}
