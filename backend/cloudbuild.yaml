@@ -9,9 +9,11 @@ steps:
     args:
       [
         "build",
+        "-f",
+        "backend/Dockerfile",
         "-t",
         "gcr.io/$PROJECT_ID/${_SERVICE_NAME}",
-        ".",
+        "backend",
       ]
 
   - name: "gcr.io/cloud-builders/docker"
