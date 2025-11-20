@@ -67,6 +67,42 @@ const isAllowedOrigin = (origin) => {
   );
 };
 
+const parseBasePath = (basePath = '') => {
+  const trimmed = basePath.trim();
+  if (!trimmed || trimmed === '/') {
+    return '';
+  }
+  return `/${trimmed.replace(/^\/+|\/+$/g, '')}`;
+};
+
+const apiBasePaths = Array.from(
+  new Set(
+    (process.env.API_BASE_PATHS || '/api,/')
+      .split(',')
+      .map(parseBasePath)
+  )
+);
+
+const registerRoutes = (relativePath, router) => {
+  const normalizedRelative = relativePath.startsWith('/')
+    ? relativePath
+    : `/${relativePath}`;
+
+  apiBasePaths.forEach((basePath) => {
+    app.use(`${basePath}${normalizedRelative}`, router);
+  });
+};
+
+const registerApiGet = (relativePath, handler) => {
+  const normalizedRelative = relativePath.startsWith('/')
+    ? relativePath
+    : `/${relativePath}`;
+
+  apiBasePaths.forEach((basePath) => {
+    app.get(`${basePath}${normalizedRelative}`, handler);
+  });
+};
+
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -94,18 +130,18 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.use('/api/auth', authRoutes);
-app.use('/api/clients', clientRoutes);
-app.use('/api/partners', partnerRoutes);
-app.use('/api/opportunities', opportunityRoutes);
-app.use('/api/transactions', transactionRoutes);
-app.use('/api/activities', activityRoutes);
+registerRoutes('/auth', authRoutes);
+registerRoutes('/clients', clientRoutes);
+registerRoutes('/partners', partnerRoutes);
+registerRoutes('/opportunities', opportunityRoutes);
+registerRoutes('/transactions', transactionRoutes);
+registerRoutes('/activities', activityRoutes);
 
 app.get('/', (_req, res) => {
   res.send('Backend do CRM Financeiro está em execução!');
 });
 
-app.get('/api/health', (_req, res) => {
+registerApiGet('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 

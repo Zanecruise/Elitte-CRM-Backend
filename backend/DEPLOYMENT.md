@@ -15,11 +15,14 @@ LOCAL_DATABASE_URL=postgresql://postgres:SUA_SENHA@localhost:5432/postgres
 DATABASE_URL=postgresql://postgres:SUA_SENHA@localhost:5432/postgres?host=/cloudsql/YOUR_PROJECT_ID:southamerica-east1:elitte-crm-db&sslmode=disable
 PORT=3000
 FRONTEND_URLS=https://seu-frontend.vercel.app
+API_BASE_PATHS=/api,/
 GEMINI_API_KEY=...
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 COOKIE_KEY=...
 ```
+
+O `API_BASE_PATHS=/api,/` garante que o backend responda tanto por `/api/...` (uso recomendado) quanto por rotas sem prefixo, facilitando integrações que ainda apontam para `/auth`, `/clients`, etc. Ajuste a lista (separada por vírgula) conforme necessário.
 
 ## 2. Construir e publicar a imagem
 
@@ -31,8 +34,10 @@ gcloud builds submit --config cloudbuild.yaml   --substitutions=_REGION=southame
 
 ## 3. Implantar no Cloud Run
 
+> Importante: o Cloud Run exige que o container escute na porta indicada pela plataforma (8080 por padrao). Nao defina manualmente a variavel `PORT`; basta deixar o servico usar o valor que o Cloud Run injeta automaticamente.
+
 ```bash
-gcloud run deploy elitte-backend   --image gcr.io/YOUR_PROJECT_ID/elitte-backend   --region southamerica-east1   --allow-unauthenticated   --service-account cloud-run-crm@YOUR_PROJECT_ID.iam.gserviceaccount.com   --add-cloudsql-instances YOUR_PROJECT_ID:southamerica-east1:elitte-crm-db   --set-env-vars PORT=3000   --update-secrets DATABASE_URL=elitte-backend-env:latest,GEMINI_API_KEY=elitte-backend-env:latest,GOOGLE_CLIENT_ID=elitte-backend-env:latest,GOOGLE_CLIENT_SECRET=elitte-backend-env:latest,COOKIE_KEY=elitte-backend-env:latest,FRONTEND_URLS=elitte-backend-env:latest
+gcloud run deploy elitte-backend   --image gcr.io/YOUR_PROJECT_ID/elitte-backend   --region southamerica-east1   --allow-unauthenticated   --service-account cloud-run-crm@YOUR_PROJECT_ID.iam.gserviceaccount.com   --add-cloudsql-instances YOUR_PROJECT_ID:southamerica-east1:elitte-crm-db   --update-secrets DATABASE_URL=elitte-backend-env:latest,GEMINI_API_KEY=elitte-backend-env:latest,GOOGLE_CLIENT_ID=elitte-backend-env:latest,GOOGLE_CLIENT_SECRET=elitte-backend-env:latest,COOKIE_KEY=elitte-backend-env:latest,FRONTEND_URLS=elitte-backend-env:latest
 ```
 
 Ajuste os nomes dos segredos conforme necessario.

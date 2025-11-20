@@ -38,8 +38,6 @@ steps:
         "${_SERVICE_ACCOUNT}",
         "--add-cloudsql-instances",
         "${_CLOUD_SQL_CONNECTION}",
-        "--set-env-vars",
-        "PORT=3000",
       ]
 
 images:
