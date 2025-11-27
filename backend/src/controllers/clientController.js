@@ -24,6 +24,134 @@ const buildClientResponse = (client) => {
   };
 };
 
+const normalizeStringArray = (value) => {
+  if (value === undefined) {
+    return undefined;
+  }
+  const rawValues = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(',').map((item) => item.trim())
+      : [];
+
+  return rawValues
+    .map((item) => (item == null ? '' : String(item).trim()))
+    .filter(Boolean);
+};
+
+const normalizeDecimalValue = (value, fallback) => {
+  if (value === undefined) {
+    return fallback;
+  }
+  const parsed = toNumber(value);
+  if (parsed === null) {
+    return null;
+  }
+  return Number.isNaN(parsed) ? fallback ?? null : parsed;
+};
+
+const normalizeDateValue = (value, fallback) => {
+  if (value === undefined) {
+    return fallback;
+  }
+  if (!value) {
+    return null;
+  }
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return fallback ?? null;
+  }
+  return parsed;
+};
+
+const buildJsonValue = (value) =>
+  value === undefined ? undefined : value ?? null;
+
+const buildClientData = (payload = {}, { partial = false } = {}) => {
+  const data = {};
+  const assign = (key, value) => {
+    if (value !== undefined) {
+      data[key] = Array.isArray(value) ? [...value] : value;
+    }
+  };
+
+  const stringFields = [
+    'name',
+    'email',
+    'type',
+    'phone',
+    'cpf',
+    'cnpj',
+    'sector',
+    'complianceStatus',
+    'citizenship',
+    'partnerId',
+  ];
+
+  stringFields.forEach((field) => {
+    if (payload[field] !== undefined) {
+      assign(field, payload[field]);
+    } else if (!partial && field === 'complianceStatus') {
+      assign(field, 'Pendente');
+    }
+  });
+
+  const walletValue = normalizeDecimalValue(
+    payload.walletValue,
+    partial ? undefined : 0
+  );
+  assign('walletValue', walletValue);
+
+  const servicePreferences = normalizeStringArray(payload.servicePreferences);
+  if (servicePreferences !== undefined) {
+    assign('servicePreferences', servicePreferences);
+  } else if (!partial) {
+    assign('servicePreferences', []);
+  }
+
+  const advisors = normalizeStringArray(payload.advisors);
+  if (advisors !== undefined) {
+    assign('advisors', advisors);
+  } else if (!partial) {
+    assign('advisors', []);
+  }
+
+  const jsonFields = [
+    ['financialProfile', null],
+    ['address', null],
+    ['contactPersons', []],
+    ['interactionHistory', []],
+    ['reminders', []],
+  ];
+
+  jsonFields.forEach(([field, fallback]) => {
+    const normalized = buildJsonValue(payload[field]);
+    if (normalized !== undefined) {
+      assign(field, normalized);
+    } else if (!partial) {
+      assign(field, Array.isArray(fallback) ? [...fallback] : fallback);
+    }
+  });
+
+  if (payload.partnerData !== undefined) {
+    const normalized = buildJsonValue(payload.partnerData);
+    assign('partnerData', normalized);
+  } else if (payload.partners !== undefined) {
+    const normalized = buildJsonValue(payload.partners);
+    assign('partnerData', normalized);
+  } else if (!partial) {
+    assign('partnerData', []);
+  }
+
+  const lastActivity = normalizeDateValue(
+    payload.lastActivity,
+    partial ? undefined : new Date()
+  );
+  assign('lastActivity', lastActivity);
+
+  return data;
+};
+
 const getAllClients = async (_req, res) => {
   try {
     const clients = await prisma.client.findMany({
@@ -58,54 +186,14 @@ const createClient = async (req, res) => {
   if (!name || !email || !type) {
     return res
       .status(400)
-      .json({ message: 'Nome, e-mail e tipo são obrigatórios.' });
+      .json({ message: 'Nome, e-mail e tipo sao obrigatorios.' });
   }
 
-  const {
-    phone,
-    cpf,
-    cnpj,
-    sector,
-    servicePreferences = [],
-    advisors = [],
-    complianceStatus = 'Pendente',
-    walletValue = 0,
-    financialProfile = null,
-    address = null,
-    contactPersons = [],
-    partners = [],
-    partnerId,
-    partnerData = partners,
-    citizenship,
-    interactionHistory = [],
-    reminders = [],
-    lastActivity = new Date().toISOString(),
-  } = req.body;
+  const clientData = buildClientData(req.body);
 
   try {
     const newClient = await prisma.client.create({
-      data: {
-        name,
-        email,
-        type,
-        phone,
-        cpf,
-        cnpj,
-        sector,
-        servicePreferences,
-        advisors,
-        complianceStatus,
-        walletValue,
-        financialProfile,
-        address,
-        contactPersons,
-        partnerData,
-        citizenship,
-        interactionHistory,
-        reminders,
-        partnerId,
-        lastActivity,
-      },
+      data: clientData,
       include: { partner: true },
     });
     res.status(201).json(buildClientResponse(newClient));
@@ -116,10 +204,18 @@ const createClient = async (req, res) => {
 };
 
 const updateClient = async (req, res) => {
+  const updateData = buildClientData(req.body, { partial: true });
+
+  if (Object.keys(updateData).length === 0) {
+    return res
+      .status(400)
+      .json({ message: 'Nenhum campo foi enviado para atualizacao.' });
+  }
+
   try {
     const updated = await prisma.client.update({
       where: { id: req.params.id },
-      data: req.body,
+      data: updateData,
       include: { partner: true },
     });
     res.json(buildClientResponse(updated));
