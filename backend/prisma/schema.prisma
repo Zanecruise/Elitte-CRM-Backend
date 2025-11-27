@@ -61,6 +61,7 @@ model Client {
   opportunities      Opportunity[]
   transactions       Transaction[]
   activities         Activity[]
+  collaborationNotes CollaborationNote[]
 }
 
 model Opportunity {
@@ -116,4 +117,18 @@ model Activity {
   updatedAt     DateTime @updatedAt
   client        Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
   opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+}
+
+model CollaborationNote {
+  id         String   @id @default(cuid())
+  clientId   String
+  content    String
+  mentions   Json?
+  authorId   String?
+  authorName String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
 }

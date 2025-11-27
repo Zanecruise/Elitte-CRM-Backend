@@ -1,4 +1,18 @@
 const express = require('express');
+const {
+  getNotesByClient,
+  getNoteById,
+  createNote,
+  updateNote,
+  deleteNote,
+} = require('../controllers/commentController');
+
 const router = express.Router();
-// O conteúdo será adicionado no próximo passo
+
+router.get('/client/:clientId', getNotesByClient);
+router.post('/client/:clientId', createNote);
+router.get('/:id', getNoteById);
+router.patch('/:id', updateNote);
+router.delete('/:id', deleteNote);
+
 module.exports = router;

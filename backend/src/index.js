@@ -13,6 +13,7 @@ const partnerRoutes = require('./routes/partnerRoutes');
 const opportunityRoutes = require('./routes/opportunityRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const activityRoutes = require('./routes/activityRoutes');
+const commentRoutes = require('./routes/commentRoutes');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -136,6 +137,7 @@ registerRoutes('/partners', partnerRoutes);
 registerRoutes('/opportunities', opportunityRoutes);
 registerRoutes('/transactions', transactionRoutes);
 registerRoutes('/activities', activityRoutes);
+registerRoutes('/comments', commentRoutes);
 
 app.get('/', (_req, res) => {
   res.send('Backend do CRM Financeiro está em execução!');

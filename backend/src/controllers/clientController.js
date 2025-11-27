@@ -3,6 +3,34 @@ const prisma = require('../lib/prisma');
 const toNumber = (value) =>
   value === null || value === undefined ? null : Number(value);
 
+const CLIENT_LIST_NOTE_LIMIT = 5;
+const CLIENT_DETAIL_NOTE_LIMIT = 50;
+
+const buildClientInclude = ({ noteLimit } = {}) => {
+  const collaborationNotes = {
+    orderBy: { createdAt: 'desc' },
+  };
+
+  if (Number.isInteger(noteLimit) && noteLimit > 0) {
+    collaborationNotes.take = noteLimit;
+  }
+
+  return {
+    partner: true,
+    collaborationNotes,
+  };
+};
+
+const buildCollaborationNotes = (notes) => {
+  if (!Array.isArray(notes)) {
+    return [];
+  }
+  return notes.map((note) => ({
+    ...note,
+    mentions: Array.isArray(note.mentions) ? note.mentions : [],
+  }));
+};
+
 const buildClientResponse = (client) => {
   if (!client) return null;
   return {
@@ -21,6 +49,7 @@ const buildClientResponse = (client) => {
     interactionHistory: client.interactionHistory || [],
     reminders: client.reminders || [],
     partner: client.partner || null,
+    collaborationNotes: buildCollaborationNotes(client.collaborationNotes),
   };
 };
 
@@ -155,7 +184,7 @@ const buildClientData = (payload = {}, { partial = false } = {}) => {
 const getAllClients = async (_req, res) => {
   try {
     const clients = await prisma.client.findMany({
-      include: { partner: true },
+      include: buildClientInclude({ noteLimit: CLIENT_LIST_NOTE_LIMIT }),
       orderBy: { createdAt: 'desc' },
     });
     res.json(clients.map(buildClientResponse));
@@ -169,7 +198,7 @@ const getClientById = async (req, res) => {
   try {
     const client = await prisma.client.findUnique({
       where: { id: req.params.id },
-      include: { partner: true },
+      include: buildClientInclude({ noteLimit: CLIENT_DETAIL_NOTE_LIMIT }),
     });
     if (!client) {
       return res.status(404).json({ message: 'Cliente não encontrado.' });
@@ -194,7 +223,7 @@ const createClient = async (req, res) => {
   try {
     const newClient = await prisma.client.create({
       data: clientData,
-      include: { partner: true },
+      include: buildClientInclude({ noteLimit: CLIENT_LIST_NOTE_LIMIT }),
     });
     res.status(201).json(buildClientResponse(newClient));
   } catch (error) {
@@ -216,7 +245,7 @@ const updateClient = async (req, res) => {
     const updated = await prisma.client.update({
       where: { id: req.params.id },
       data: updateData,
-      include: { partner: true },
+      include: buildClientInclude({ noteLimit: CLIENT_LIST_NOTE_LIMIT }),
     });
     res.json(buildClientResponse(updated));
   } catch (error) {
