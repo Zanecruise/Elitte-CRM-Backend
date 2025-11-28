@@ -5,8 +5,11 @@ const {
   updatePartner,
   deletePartner,
 } = require('../controllers/partnerController');
+const { ensureAuthenticated } = require('../middleware/authMiddleware');
 
 const router = express.Router();
+
+router.use(ensureAuthenticated);
 
 router.get('/', getAllPartners);
 router.post('/', createPartner);

@@ -5,8 +5,11 @@ const {
   updateOpportunity,
   deleteOpportunity,
 } = require('../controllers/opportunityController');
+const { ensureAuthenticated } = require('../middleware/authMiddleware');
 
 const router = express.Router();
+
+router.use(ensureAuthenticated);
 
 router.get('/', getAllOpportunities);
 router.post('/', createOpportunity);

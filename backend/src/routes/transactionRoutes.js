@@ -5,8 +5,11 @@ const {
   updateTransaction,
   deleteTransaction,
 } = require('../controllers/transactionController');
+const { ensureAuthenticated } = require('../middleware/authMiddleware');
 
 const router = express.Router();
+
+router.use(ensureAuthenticated);
 
 router.get('/', getAllTransactions);
 router.post('/', createTransaction);

@@ -12,9 +12,19 @@ const buildOpportunityResponse = (opportunity) => {
   };
 };
 
-const getAllOpportunities = async (_req, res) => {
+const ensureClientOwnership = async (clientId, userId) =>
+  prisma.client.findFirst({ where: { id: clientId, ownerId: userId } });
+
+const ensureOpportunityOwnership = async (opportunityId, userId) =>
+  prisma.opportunity.findFirst({
+    where: { id: opportunityId, ownerId: userId },
+    include: { client: true },
+  });
+
+const getAllOpportunities = async (req, res) => {
   try {
     const opportunities = await prisma.opportunity.findMany({
+      where: { ownerId: req.user.id },
       include: { client: true },
       orderBy: { createdAt: 'desc' },
     });
@@ -30,7 +40,12 @@ const createOpportunity = async (req, res) => {
   if (!title || !clientId || !stage) {
     return res
       .status(400)
-      .json({ message: 'T√≠tulo, cliente e est√°gio s√£o obrigat√≥rios.' });
+      .json({ message: 'TÌtulo, cliente e est·gio s„o obrigatÛrios.' });
+  }
+
+  const client = await ensureClientOwnership(clientId, req.user.id);
+  if (!client) {
+    return res.status(404).json({ message: 'Cliente n„o encontrado.' });
   }
 
   try {
@@ -47,6 +62,7 @@ const createOpportunity = async (req, res) => {
           : null,
         responsible: req.body.responsible,
         nextAction: req.body.nextAction,
+        ownerId: req.user.id,
       },
       include: { client: true },
     });
@@ -59,6 +75,22 @@ const createOpportunity = async (req, res) => {
 
 const updateOpportunity = async (req, res) => {
   try {
+    const existing = await ensureOpportunityOwnership(
+      req.params.id,
+      req.user.id
+    );
+
+    if (!existing) {
+      return res.status(404).json({ message: 'Oportunidade n„o encontrada.' });
+    }
+
+    if (req.body.clientId && req.body.clientId !== existing.clientId) {
+      const client = await ensureClientOwnership(req.body.clientId, req.user.id);
+      if (!client) {
+        return res.status(404).json({ message: 'Cliente n„o encontrado.' });
+      }
+    }
+
     const opportunity = await prisma.opportunity.update({
       where: { id: req.params.id },
       data: req.body,
@@ -68,7 +100,7 @@ const updateOpportunity = async (req, res) => {
   } catch (error) {
     console.error('Erro ao atualizar oportunidade:', error);
     if (error.code === 'P2025') {
-      return res.status(404).json({ message: 'Oportunidade n√£o encontrada.' });
+      return res.status(404).json({ message: 'Oportunidade n„o encontrada.' });
     }
     res.status(500).json({ message: 'Erro ao atualizar oportunidade.' });
   }
@@ -76,12 +108,20 @@ const updateOpportunity = async (req, res) => {
 
 const deleteOpportunity = async (req, res) => {
   try {
+    const existing = await ensureOpportunityOwnership(
+      req.params.id,
+      req.user.id
+    );
+    if (!existing) {
+      return res.status(404).json({ message: 'Oportunidade n„o encontrada.' });
+    }
+
     await prisma.opportunity.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (error) {
     console.error('Erro ao remover oportunidade:', error);
     if (error.code === 'P2025') {
-      return res.status(404).json({ message: 'Oportunidade n√£o encontrada.' });
+      return res.status(404).json({ message: 'Oportunidade n„o encontrada.' });
     }
     res.status(500).json({ message: 'Erro ao remover oportunidade.' });
   }

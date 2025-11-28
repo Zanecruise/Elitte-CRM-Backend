@@ -17,6 +17,12 @@ model User {
   password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  clients   Client[]
+  partners  Partner[]
+  opportunities Opportunity[]
+  transactions  Transaction[]
+  activities    Activity[]
+  collaborationNotes CollaborationNote[] @relation("CollaborationNoteAuthor")
 }
 
 model Partner {
@@ -30,7 +36,11 @@ model Partner {
   totalVolume           Decimal? @db.Decimal(18, 2)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+  ownerId               String?
+  owner                 User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   clients               Client[]
+
+  @@index([ownerId])
 }
 
 model Client {
@@ -57,11 +67,15 @@ model Client {
   lastActivity       DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+  ownerId            String?
+  owner              User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   partner            Partner? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
   opportunities      Opportunity[]
   transactions       Transaction[]
   activities         Activity[]
   collaborationNotes CollaborationNote[]
+
+  @@index([ownerId])
 }
 
 model Opportunity {
@@ -77,8 +91,13 @@ model Opportunity {
   clientId          String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  ownerId           String?
   client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   activities        Activity[]
+
+  owner             User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
 }
 
 model Transaction {
@@ -97,7 +116,12 @@ model Transaction {
   docRef          String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  ownerId         String?
   client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  owner           User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
 }
 
 model Activity {
@@ -115,8 +139,12 @@ model Activity {
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  ownerId       String?
   client        Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
   opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  owner         User?        @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
 }
 
 model CollaborationNote {
@@ -129,6 +157,7 @@ model CollaborationNote {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  author     User?    @relation("CollaborationNoteAuthor", fields: [authorId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
 }

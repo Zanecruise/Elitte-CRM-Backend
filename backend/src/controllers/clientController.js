@@ -181,9 +181,16 @@ const buildClientData = (payload = {}, { partial = false } = {}) => {
   return data;
 };
 
-const getAllClients = async (_req, res) => {
+const findClientForUser = async (clientId, userId) =>
+  prisma.client.findFirst({
+    where: { id: clientId, ownerId: userId },
+    include: buildClientInclude({ noteLimit: CLIENT_DETAIL_NOTE_LIMIT }),
+  });
+
+const getAllClients = async (req, res) => {
   try {
     const clients = await prisma.client.findMany({
+      where: { ownerId: req.user.id },
       include: buildClientInclude({ noteLimit: CLIENT_LIST_NOTE_LIMIT }),
       orderBy: { createdAt: 'desc' },
     });
@@ -196,12 +203,9 @@ const getAllClients = async (_req, res) => {
 
 const getClientById = async (req, res) => {
   try {
-    const client = await prisma.client.findUnique({
-      where: { id: req.params.id },
-      include: buildClientInclude({ noteLimit: CLIENT_DETAIL_NOTE_LIMIT }),
-    });
+    const client = await findClientForUser(req.params.id, req.user.id);
     if (!client) {
-      return res.status(404).json({ message: 'Cliente n√£o encontrado.' });
+      return res.status(404).json({ message: 'Cliente n„o encontrado.' });
     }
     res.json(buildClientResponse(client));
   } catch (error) {
@@ -222,7 +226,10 @@ const createClient = async (req, res) => {
 
   try {
     const newClient = await prisma.client.create({
-      data: clientData,
+      data: {
+        ...clientData,
+        ownerId: req.user.id,
+      },
       include: buildClientInclude({ noteLimit: CLIENT_LIST_NOTE_LIMIT }),
     });
     res.status(201).json(buildClientResponse(newClient));
@@ -242,6 +249,14 @@ const updateClient = async (req, res) => {
   }
 
   try {
+    const existing = await prisma.client.findFirst({
+      where: { id: req.params.id, ownerId: req.user.id },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: 'Cliente n„o encontrado.' });
+    }
+
     const updated = await prisma.client.update({
       where: { id: req.params.id },
       data: updateData,
@@ -251,7 +266,7 @@ const updateClient = async (req, res) => {
   } catch (error) {
     console.error('Erro ao atualizar cliente:', error);
     if (error.code === 'P2025') {
-      return res.status(404).json({ message: 'Cliente n√£o encontrado.' });
+      return res.status(404).json({ message: 'Cliente n„o encontrado.' });
     }
     res.status(500).json({ message: 'Erro ao atualizar cliente.' });
   }
@@ -259,12 +274,20 @@ const updateClient = async (req, res) => {
 
 const deleteClient = async (req, res) => {
   try {
+    const existing = await prisma.client.findFirst({
+      where: { id: req.params.id, ownerId: req.user.id },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: 'Cliente n„o encontrado.' });
+    }
+
     await prisma.client.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (error) {
     console.error('Erro ao remover cliente:', error);
     if (error.code === 'P2025') {
-      return res.status(404).json({ message: 'Cliente n√£o encontrado.' });
+      return res.status(404).json({ message: 'Cliente n„o encontrado.' });
     }
     res.status(500).json({ message: 'Erro ao remover cliente.' });
   }

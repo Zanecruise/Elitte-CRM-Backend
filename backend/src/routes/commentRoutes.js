@@ -6,8 +6,11 @@ const {
   updateNote,
   deleteNote,
 } = require('../controllers/commentController');
+const { ensureAuthenticated } = require('../middleware/authMiddleware');
 
 const router = express.Router();
+
+router.use(ensureAuthenticated);
 
 router.get('/client/:clientId', getNotesByClient);
 router.post('/client/:clientId', createNote);

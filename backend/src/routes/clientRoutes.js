@@ -6,8 +6,11 @@ const {
   updateClient,
   deleteClient,
 } = require('../controllers/clientController');
+const { ensureAuthenticated } = require('../middleware/authMiddleware');
 
 const router = express.Router();
+
+router.use(ensureAuthenticated);
 
 router.get('/', getAllClients);
 router.get('/:id', getClientById);

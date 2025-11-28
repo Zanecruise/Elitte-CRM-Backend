@@ -11,9 +11,10 @@ const buildPartnerResponse = (partner) => {
   };
 };
 
-const getAllPartners = async (_req, res) => {
+const getAllPartners = async (req, res) => {
   try {
     const partners = await prisma.partner.findMany({
+      where: { ownerId: req.user.id },
       orderBy: { createdAt: 'desc' },
     });
     res.json(partners.map(buildPartnerResponse));
@@ -26,7 +27,7 @@ const getAllPartners = async (_req, res) => {
 const createPartner = async (req, res) => {
   const { name } = req.body;
   if (!name) {
-    return res.status(400).json({ message: 'Nome √© obrigat√≥rio.' });
+    return res.status(400).json({ message: 'Nome È obrigatÛrio.' });
   }
 
   try {
@@ -39,6 +40,7 @@ const createPartner = async (req, res) => {
         contract: req.body.contract || null,
         indicatedClientsCount: req.body.indicatedClientsCount || 0,
         totalVolume: req.body.totalVolume || 0,
+        ownerId: req.user.id,
       },
     });
     res.status(201).json(buildPartnerResponse(partner));
@@ -48,8 +50,16 @@ const createPartner = async (req, res) => {
   }
 };
 
+const ensurePartnerOwnership = async (partnerId, userId) =>
+  prisma.partner.findFirst({ where: { id: partnerId, ownerId: userId } });
+
 const updatePartner = async (req, res) => {
   try {
+    const existing = await ensurePartnerOwnership(req.params.id, req.user.id);
+    if (!existing) {
+      return res.status(404).json({ message: 'Parceiro n„o encontrado.' });
+    }
+
     const partner = await prisma.partner.update({
       where: { id: req.params.id },
       data: req.body,
@@ -58,7 +68,7 @@ const updatePartner = async (req, res) => {
   } catch (error) {
     console.error('Erro ao atualizar parceiro:', error);
     if (error.code === 'P2025') {
-      return res.status(404).json({ message: 'Parceiro n√£o encontrado.' });
+      return res.status(404).json({ message: 'Parceiro n„o encontrado.' });
     }
     res.status(500).json({ message: 'Erro ao atualizar parceiro.' });
   }
@@ -66,12 +76,17 @@ const updatePartner = async (req, res) => {
 
 const deletePartner = async (req, res) => {
   try {
+    const existing = await ensurePartnerOwnership(req.params.id, req.user.id);
+    if (!existing) {
+      return res.status(404).json({ message: 'Parceiro n„o encontrado.' });
+    }
+
     await prisma.partner.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (error) {
     console.error('Erro ao remover parceiro:', error);
     if (error.code === 'P2025') {
-      return res.status(404).json({ message: 'Parceiro n√£o encontrado.' });
+      return res.status(404).json({ message: 'Parceiro n„o encontrado.' });
     }
     res.status(500).json({ message: 'Erro ao remover parceiro.' });
   }

@@ -2,9 +2,48 @@ const prisma = require('../lib/prisma');
 
 const buildActivityResponse = (activity) => activity;
 
-const getAllActivities = async (_req, res) => {
+const ensureActivityOwnership = async (activityId, userId) =>
+  prisma.activity.findFirst({ where: { id: activityId, ownerId: userId } });
+
+const ensureClientOwnership = async (clientId, userId) => {
+  if (!clientId) return null;
+  return prisma.client.findFirst({ where: { id: clientId, ownerId: userId } });
+};
+
+const ensureOpportunityOwnership = async (opportunityId, userId) => {
+  if (!opportunityId) return null;
+  return prisma.opportunity.findFirst({
+    where: { id: opportunityId, ownerId: userId },
+  });
+};
+
+const validateActivityRelations = async (req, res) => {
+  if (req.body.clientId) {
+    const client = await ensureClientOwnership(req.body.clientId, req.user.id);
+    if (!client) {
+      res.status(404).json({ message: 'Cliente n„o encontrado.' });
+      return false;
+    }
+  }
+
+  if (req.body.opportunityId) {
+    const opportunity = await ensureOpportunityOwnership(
+      req.body.opportunityId,
+      req.user.id
+    );
+    if (!opportunity) {
+      res.status(404).json({ message: 'Oportunidade n„o encontrada.' });
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const getAllActivities = async (req, res) => {
   try {
     const activities = await prisma.activity.findMany({
+      where: { ownerId: req.user.id },
       orderBy: { dueDate: 'desc' },
     });
     res.json(activities.map(buildActivityResponse));
@@ -17,7 +56,11 @@ const getAllActivities = async (_req, res) => {
 const createActivity = async (req, res) => {
   const { title, dueDate, priority, status, type } = req.body;
   if (!title || !dueDate || !priority || !status || !type) {
-    return res.status(400).json({ message: 'Campos obrigat√≥rios ausentes.' });
+    return res.status(400).json({ message: 'Campos obrigatÛrios ausentes.' });
+  }
+
+  if (!(await validateActivityRelations(req, res))) {
+    return;
   }
 
   try {
@@ -34,6 +77,7 @@ const createActivity = async (req, res) => {
         priority,
         status,
         notes: req.body.notes,
+        ownerId: req.user.id,
       },
     });
     res.status(201).json(buildActivityResponse(activity));
@@ -45,6 +89,15 @@ const createActivity = async (req, res) => {
 
 const updateActivity = async (req, res) => {
   try {
+    const existing = await ensureActivityOwnership(req.params.id, req.user.id);
+    if (!existing) {
+      return res.status(404).json({ message: 'Atividade n„o encontrada.' });
+    }
+
+    if (!(await validateActivityRelations(req, res))) {
+      return;
+    }
+
     const activity = await prisma.activity.update({
       where: { id: req.params.id },
       data: req.body,
@@ -53,7 +106,7 @@ const updateActivity = async (req, res) => {
   } catch (error) {
     console.error('Erro ao atualizar atividade:', error);
     if (error.code === 'P2025') {
-      return res.status(404).json({ message: 'Atividade n√£o encontrada.' });
+      return res.status(404).json({ message: 'Atividade n„o encontrada.' });
     }
     res.status(500).json({ message: 'Erro ao atualizar atividade.' });
   }
@@ -61,12 +114,17 @@ const updateActivity = async (req, res) => {
 
 const deleteActivity = async (req, res) => {
   try {
+    const existing = await ensureActivityOwnership(req.params.id, req.user.id);
+    if (!existing) {
+      return res.status(404).json({ message: 'Atividade n„o encontrada.' });
+    }
+
     await prisma.activity.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (error) {
     console.error('Erro ao remover atividade:', error);
     if (error.code === 'P2025') {
-      return res.status(404).json({ message: 'Atividade n√£o encontrada.' });
+      return res.status(404).json({ message: 'Atividade n„o encontrada.' });
     }
     res.status(500).json({ message: 'Erro ao remover atividade.' });
   }
