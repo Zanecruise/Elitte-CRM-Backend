@@ -17,6 +17,19 @@ const commentRoutes = require('./routes/commentRoutes');
 
 const app = express();
 const port = process.env.PORT || 3000;
+const env = (process.env.NODE_ENV || '').toLowerCase();
+const isRunningOnCloudRun = Boolean(
+  process.env.K_SERVICE || process.env.K_REVISION
+);
+const isProduction =
+  env === 'production' ||
+  env === 'prod' ||
+  isRunningOnCloudRun ||
+  process.env.FORCE_SECURE_COOKIES === 'true';
+
+if (isProduction) {
+  app.set('trust proxy', 1);
+}
 
 const normalizeOrigin = (origin = '') =>
   origin.trim().replace(/\/$/, '').toLowerCase();
@@ -119,14 +132,58 @@ app.use(
 
 app.use(express.json());
 
-app.use(
-  session({
-    secret: process.env.COOKIE_KEY || 'uma_chave_secreta_de_fallback_muito_longa',
-    resave: false,
-    saveUninitialized: false,
-    cookie: { maxAge: 24 * 60 * 60 * 1000 },
-  })
-);
+const parseBooleanEnv = (value) => {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'n', 'off'].includes(normalized)) return false;
+  return undefined;
+};
+
+const parseSameSiteEnv = (value) => {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (['lax', 'strict', 'none'].includes(normalized)) {
+    return normalized;
+  }
+  console.warn(
+    `SESSION_COOKIE_SAMESITE "${value}" invalido. Valores aceitos: lax, strict ou none.`
+  );
+  return undefined;
+};
+
+const secureOverride = parseBooleanEnv(process.env.SESSION_COOKIE_SECURE);
+const sameSiteOverride = parseSameSiteEnv(process.env.SESSION_COOKIE_SAMESITE);
+const shouldUseSecureCookies =
+  typeof secureOverride === 'boolean' ? secureOverride : isProduction;
+
+const sessionCookieConfig = {
+  httpOnly: true,
+  maxAge: 24 * 60 * 60 * 1000,
+  sameSite: sameSiteOverride || (shouldUseSecureCookies ? 'none' : 'lax'),
+  secure: shouldUseSecureCookies,
+};
+
+if (sessionCookieConfig.sameSite === 'none' && !sessionCookieConfig.secure) {
+  console.warn(
+    'sameSite=None exige cookies seguros. Ativando "secure" automaticamente.'
+  );
+  sessionCookieConfig.secure = true;
+}
+
+if (process.env.SESSION_COOKIE_DOMAIN) {
+  sessionCookieConfig.domain = process.env.SESSION_COOKIE_DOMAIN;
+}
+
+const sessionConfig = {
+  secret: process.env.COOKIE_KEY || 'uma_chave_secreta_de_fallback_muito_longa',
+  resave: false,
+  saveUninitialized: false,
+  proxy: isProduction,
+  cookie: sessionCookieConfig,
+};
+
+app.use(session(sessionConfig));
 
 app.use(passport.initialize());
 app.use(passport.session());

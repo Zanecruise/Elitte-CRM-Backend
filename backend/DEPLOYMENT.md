@@ -20,9 +20,15 @@ GEMINI_API_KEY=...
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 COOKIE_KEY=...
+SESSION_COOKIE_SECURE=true
+SESSION_COOKIE_SAMESITE=none
+# Opcional: FORCE_SECURE_COOKIES=true (usa a mesma forca bruta do auto-detect)
 ```
 
 O `API_BASE_PATHS=/api,/` garante que o backend responda tanto por `/api/...` (uso recomendado) quanto por rotas sem prefixo, facilitando integrações que ainda apontam para `/auth`, `/clients`, etc. Ajuste a lista (separada por vírgula) conforme necessário.
+
+> **Cookies em ambientes hospedados**  
+> Alguns provedores (ex.: Cloud Run) não definem `NODE_ENV=production`. O backend agora detecta automaticamente o Cloud Run, mas você ainda pode controlar explicitamente o comportamento com as variáveis `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_SAMESITE` ou `FORCE_SECURE_COOKIES`. Deixe-as vazias em ambiente local (o padrão fica `SameSite=Lax` sem `Secure`) e, em produção, use `SESSION_COOKIE_SECURE=true` + `SESSION_COOKIE_SAMESITE=none` para permitir cookies cross-site.
 
 ## 2. Construir e publicar a imagem
 
